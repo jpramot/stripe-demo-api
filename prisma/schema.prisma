@@ -1,0 +1,63 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Order {
+  id                     String         @id @default(uuid())
+  totalAmount            Decimal        @map("total_amount") @db.Decimal(10, 2)
+  status                 OrderStatus    @default(PENDING)
+  stripeSessionId        String?        @map("stripe_session_id")
+  stripeIntentId         String?        @map("stripe_intent_id")
+  paymentMethod          PaymentMethod?
+  createdAt              DateTime       @default(now()) @map("created_at")
+  stripePaymentUrl       String?        @map("stripe_payment_url") @db.Text
+  stripeSessionExpiredAt DateTime?      @map("stripe_session_expired_at")
+  orderItems             OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id       Int    @id @default(autoincrement())
+  name     String
+  price    Float
+  image    String
+  quantity Int
+  orderId  String
+  order    Order  @relation(fields: [orderId], references: [id])
+
+  @@map("order_items")
+}
+
+model Subscription {
+  id                 String             @id
+  currentPeriodStart DateTime           @map("current_period_start")
+  currentPeriodEnd   DateTime           @map("current_period_end")
+  subScriptionStatus SubScriptionStatus @default(ACTIVE)
+  isSub              Boolean            @default(true)
+}
+
+enum SubScriptionStatus {
+  ACTIVE
+  PART_DUE
+  UNPAID
+  CANCELED
+}
+
+enum OrderStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  CANCELED
+}
+
+enum PaymentMethod {
+  CARD
+  PROMPTPAY
+}
