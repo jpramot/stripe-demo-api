@@ -8,17 +8,27 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id               Int           @id @default(autoincrement())
+  name             String
+  email            String
+  stripeCustomerId String?       @map("stripe_customer_id")
+  subscription     Subscription?
+
+  @@map("users")
+}
+
 model Order {
-  id                     String         @id @default(uuid())
-  totalAmount            Decimal        @map("total_amount") @db.Decimal(10, 2)
-  status                 OrderStatus    @default(PENDING)
-  stripeSessionId        String?        @map("stripe_session_id")
-  stripeIntentId         String?        @map("stripe_intent_id")
-  paymentMethod          PaymentMethod?
-  createdAt              DateTime       @default(now()) @map("created_at")
-  stripePaymentUrl       String?        @map("stripe_payment_url") @db.Text
-  stripeSessionExpiredAt DateTime?      @map("stripe_session_expired_at")
-  orderItems             OrderItem[]
+  id               String         @id @default(uuid())
+  totalAmount      Decimal        @map("total_amount") @db.Decimal(10, 2)
+  status           OrderStatus    @default(PENDING)
+  stripeSessionId  String?        @unique @map("stripe_session_id")
+  stripeIntentId   String?        @unique @map("stripe_intent_id")
+  paymentMethod    PaymentMethod?
+  createdAt        DateTime       @default(now()) @map("created_at")
+  stripePaymentUrl String?        @map("stripe_payment_url") @db.Text
+  // stripeSessionExpiredAt DateTime?      @map("stripe_session_expired_at")
+  orderItems       OrderItem[]
 
   @@map("orders")
 }
@@ -37,24 +47,31 @@ model OrderItem {
 
 model Subscription {
   id                 String             @id
-  currentPeriodStart DateTime           @map("current_period_start")
-  currentPeriodEnd   DateTime           @map("current_period_end")
-  subScriptionStatus SubScriptionStatus @default(ACTIVE)
-  isSub              Boolean            @default(true)
+  stripeSessionId    String?            @unique @map("stripe_session_id")
+  currentPeriodStart DateTime?          @map("current_period_start")
+  currentPeriodEnd   DateTime?          @map("current_period_end")
+  subScriptionStatus SubScriptionStatus @default(ACTIVE) @map("subscription_status")
+  userId             Int                @unique
+  user               User               @relation(references: [id], fields: [userId])
+  isAvailable        Boolean            @default(true) @map("is_available")
+  createdAt          DateTime           @default(now()) @map("created_at")
+  priceId            String?            @map("price_id")
+
+  @@map("subscriptions")
 }
 
 enum SubScriptionStatus {
   ACTIVE
-  PART_DUE
   UNPAID
   CANCELED
 }
 
 enum OrderStatus {
   PENDING
-  SUCCESS
+  PAID
   FAILED
   CANCELED
+  REFUND
 }
 
 enum PaymentMethod {

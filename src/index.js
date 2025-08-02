@@ -4,6 +4,7 @@ import { config } from "dotenv";
 import orderRouter from "./routes/order.route.js";
 import errorMiddleware from "./middleware/error.middleware.js";
 import webhookRouter from "./routes/webhook.route.js";
+import checkoutRouter from "./routes/checkout.route.js";
 
 config();
 const app = express();
@@ -21,6 +22,7 @@ app.use("/webhook", express.raw({ type: "application/json" }), webhookRouter);
 app.use(express.json());
 
 app.use("/api/orders", orderRouter);
+app.use("/api/checkout", checkoutRouter);
 
 app.use(errorMiddleware);
 

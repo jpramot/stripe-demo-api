@@ -1,0 +1,33 @@
+{
+  "id": "evt_test_subscription_created",
+  "object": "event",
+  "type": "customer.subscription.created",
+  "data": {
+    "object": {
+      "id": "sub_test_123",
+      "object": "subscription",
+      "customer": "cus_test_123",
+      "status": "active",
+      "metadata": { "userId": 10 },
+      "items": {
+        "object": "list",
+        "data": [
+          {
+            "id": "si_test_123",
+            "object": "subscription_item",
+            "price": {
+              "id": "price_test_123",
+              "object": "price",
+              "unit_amount": 50000,
+              "currency": "thb",
+              "recurring": { "interval": "month", "interval_count": 1 }
+            },
+            "quantity": 1
+          }
+        ]
+      },
+      "current_period_start": 1738483200,
+      "current_period_end": 1741161600
+    }
+  }
+}

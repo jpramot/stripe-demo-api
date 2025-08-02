@@ -1,0 +1,18 @@
+{
+  "id": "evt_test_checkout_session_completed",
+  "object": "event",
+  "type": "checkout.session.completed",
+  "data": {
+    "object": {
+      "id": "cs_test_123",
+      "object": "checkout.session",
+      "customer": "cus_test_123",
+      "subscription": "sub_test_123",
+      "mode": "subscription",
+      "payment_status": "paid",
+      "metadata": { "userId": 10 },
+      "amount_total": 50000,
+      "currency": "thb"
+    }
+  }
+}
