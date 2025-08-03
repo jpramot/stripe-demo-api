@@ -5,6 +5,7 @@ import stripe from "../config/stripe.js";
 import NotFound from "../error/notfound-error.js";
 import { OrderStatus } from "../../generated/prisma/index.js";
 import BadRequest from "../error/badrequest-error.js";
+import InternalError from "../error/internal-error.js";
 
 //* create new order
 export const createNewOrder = async (data) => {
@@ -23,7 +24,7 @@ export const createNewOrder = async (data) => {
   };
   const order = await orderRepo.create(orderData);
   if (discount > 100) throw new BadRequest("Discount must be less than 100");
-  const totalDiscount = totalAmount * ((100 - discount) / 100);
+  const totalDiscount = totalAmount * (discount / 100);
   const { url, stripeSessionId } = await createStripeSession(
     order.id,
     parseInt(userId),
@@ -47,10 +48,6 @@ export const getOrderPaymentUrl = async (id) => {
   const order = await orderRepo.findByIdWithPendingStatus(id);
   if (!order) {
     throw new NotFound("Order not found");
-  }
-  if (order.stripeSessionExpiredAt > new Date()) {
-    console.log("return");
-    return { url: order.stripePaymentUrl };
   }
   const { url, stripeSessionId } = await createStripeSession(id);
 
@@ -80,13 +77,13 @@ export const updateOrderByIntentId = async (stripeIntentId, data) => {
 };
 
 //* update order
-export const updateOrderById = async (id, data) => {
-  const existOrder = await orderRepo.findById(id);
-  if (!existOrder) {
-    throw new NotFound("Order not found");
-  }
-  await orderRepo.updateById(id, data);
-};
+// export const updateOrderById = async (id, data) => {
+//   const existOrder = await orderRepo.findById(id);
+//   if (!existOrder) {
+//     throw new NotFound("Order not found");
+//   }
+//   await orderRepo.updateById(id, data);
+// };
 
 //* cancel order
 export const cancelOrder = async (id) => {
@@ -109,78 +106,86 @@ export const getOrderBySessionId = async (stripeSessionId) => {
   return { order };
 };
 
-export const createNewSubOrder = async (id) => {
-  const { url } = await createStripeSubSession(id, 1);
+export const createNewSubOrder = async (id, userId) => {
+  const { url } = await createStripeSubSession(id, userId);
   return { url };
 };
 
 //* create stripe subscription session
 const createStripeSubSession = async (id, userId) => {
-  const stripeCustomerId = await createOrGetStripeCustomer(userId);
-  const stripeSession = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    line_items: [{ price: id, quantity: 1 }],
-    payment_method_types: ["card"],
-    subscription_data: {
+  try {
+    const stripeCustomerId = await createOrGetStripeCustomer(userId);
+    const stripeSession = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      line_items: [{ price: id, quantity: 1 }],
+      payment_method_types: ["card"],
+      subscription_data: {
+        metadata: {
+          userId,
+        },
+      },
       metadata: {
         userId,
       },
-    },
-    metadata: {
-      userId,
-    },
-    customer: stripeCustomerId,
-    success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL}/cancel`,
-  });
-  return { url: stripeSession.url };
+      customer: stripeCustomerId,
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+    });
+    return { url: stripeSession.url };
+  } catch (error) {
+    throw new InternalError(`Error during creating stripe subscription session: ${error.message}`);
+  }
 };
 
 //* create stripe session payment
 const createStripeSession = async (orderId, userId, discount) => {
-  const stripeCustomerId = await createOrGetStripeCustomer(userId);
+  try {
+    const stripeCustomerId = await createOrGetStripeCustomer(userId);
 
-  const orderItem = await orderItemRepo.findAllByOrderId(orderId);
-  if (orderItem.length === 0) {
-    throw new BadRequest("Order item not found");
-  }
-  const payload = {
-    line_items: orderItem.map((item) => ({
-      price_data: {
-        currency: "thb",
-        product_data: {
-          name: item.name,
-          images: [item.image],
+    const orderItem = await orderItemRepo.findAllByOrderId(orderId);
+    if (orderItem.length === 0) {
+      throw new BadRequest("Order item not found");
+    }
+    const payload = {
+      line_items: orderItem.map((item) => ({
+        price_data: {
+          currency: "thb",
+          product_data: {
+            name: item.name,
+            images: [item.image],
+          },
+          unit_amount: item.price * 100,
         },
-        unit_amount: item.price * 100,
+        quantity: item.quantity,
+      })),
+      mode: "payment",
+      payment_method_types: ["card", "promptpay"],
+      expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
+      customer: stripeCustomerId,
+      payment_intent_data: {
+        metadata: {
+          orderId,
+        },
       },
-      quantity: item.quantity,
-    })),
-    mode: "payment",
-    payment_method_types: ["card", "promptpay"],
-    expires_at: Math.floor(Date.now() / 1000) + 30 * 60,
-    customer: stripeCustomerId,
-    payment_intent_data: {
-      metadata: {
-        orderId,
-      },
-    },
-    success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${process.env.FRONTEND_URL}/cancel`,
-  };
-  if (discount) {
-    const coupon = await stripe.coupons.create({
-      duration: "once",
-      amount_off: discount * 100,
-      currency: "thb",
-    });
-    payload.discounts = [{ coupon: coupon.id }];
+      success_url: `${process.env.FRONTEND_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.FRONTEND_URL}/cancel`,
+    };
+    if (discount) {
+      const coupon = await stripe.coupons.create({
+        duration: "once",
+        amount_off: discount * 100,
+        currency: "thb",
+      });
+      payload.discounts = [{ coupon: coupon.id }];
+    }
+    const stripeSession = await stripe.checkout.sessions.create(payload);
+    return {
+      url: stripeSession.url,
+      stripeSessionId: stripeSession.id,
+    };
+  } catch (error) {
+    throw new InternalError(`Error during create stripe payment session: ${error.message}`);
   }
-  const stripeSession = await stripe.checkout.sessions.create(payload);
-  return {
-    url: stripeSession.url,
-    stripeSessionId: stripeSession.id,
-  };
 };
 
 const createOrGetStripeCustomer = async (userId) => {
@@ -193,6 +198,9 @@ const createOrGetStripeCustomer = async (userId) => {
     const stripeCustomer = await stripe.customers.create({
       email: existsUser.email,
       name: existsUser.name,
+      metadata: {
+        userId,
+      },
     });
     stripeCustomerId = stripeCustomer.id;
     await userRepository.update(userId, { stripeCustomerId });

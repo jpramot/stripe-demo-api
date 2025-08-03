@@ -3,9 +3,7 @@ import BadRequest from "../error/badrequest-error.js";
 import { OrderStatus } from "../../generated/prisma/client.js";
 import * as orderService from "../services/order.service.js";
 import * as subService from "../services/sub.service.js";
-import * as orderRepository from "../repository/order.repo.js";
 import InternalError from "../error/internal-error.js";
-import sleep from "../util/sleep.js";
 
 export const handleStripeHook = async (signature, body) => {
   let event;
@@ -14,9 +12,10 @@ export const handleStripeHook = async (signature, body) => {
   } catch (error) {
     throw new BadRequest(`Webhook Error: ${error.message}`);
   }
-
+  console.log(`Incoming event: ${event.type}`);
   try {
     switch (event?.type) {
+      //| case "checkout.session.expired":
       case "checkout.session.completed": {
         const session = event.data.object;
         if (session.mode === "payment") {
@@ -34,8 +33,7 @@ export const handleStripeHook = async (signature, body) => {
           await orderService.updateOrderBySessionId(session.id, data);
         } else if (session.mode === "subscription") {
           const subscription = await stripe.subscriptions.retrieve(session.subscription);
-          // console.log("session", session);
-          // console.log("subscription", subscription);
+
           const subData = {
             id: subscription.id,
             stripeSessionId: session.id,
@@ -43,13 +41,12 @@ export const handleStripeHook = async (signature, body) => {
             userId: parseInt(subscription.metadata.userId),
           };
           await subService.createOrUpdateSub(subData);
-          console.log("subscription payment success");
         } else {
           throw new BadRequest("Unknown mode");
         }
         break;
       }
-
+      //| case "checkout.session.expired":
       case "checkout.session.expired": {
         const session = event.data.object;
         const data = {
@@ -58,15 +55,9 @@ export const handleStripeHook = async (signature, body) => {
         await orderService.updateOrderBySessionId(session.id, data);
         break;
       }
-
+      //| case "subscription.created": (for first time subscription)
       case "customer.subscription.created": {
-        console.log(event.data.object);
         const { id, current_period_start, current_period_end, plan, metadata } = event.data.object;
-        console.log(
-          new Date(current_period_start * 1000).toLocaleString({
-            timeZone: "Asia/Bangkok",
-          })
-        );
         const subData = {
           id,
           currentPeriodStart: new Date(current_period_start * 1000),
@@ -75,16 +66,19 @@ export const handleStripeHook = async (signature, body) => {
           userId: parseInt(metadata.userId),
         };
         await subService.createOrUpdateSub(subData);
-        console.log("created success");
         break;
       }
+      //| case "subscription.updated": (for subscription update ex: change plan, cancel, renew)
       case "customer.subscription.updated": {
-        break;
-      }
-      case "customer.source.deleted": {
-        break;
-      }
+        //? Subscription update logic here
 
+        break;
+      }
+      //| case "subscription.deleted": (for subscription deleted ex: subscription expired without renew)
+      case "customer.source.deleted": {
+        //? Subscription deleted logic here
+        break;
+      }
       default:
         throw new BadRequest(`Unhandled event type: ${event.type}`);
     }

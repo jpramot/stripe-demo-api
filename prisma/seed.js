@@ -1,6 +1,7 @@
 import prisma from "../src/config/prisma.js";
 
 async function main() {
+  await prisma.user.deleteMany();
   await prisma.user.createMany({
     data: [
       {
@@ -14,6 +15,14 @@ async function main() {
       {
         name: "Charlie",
         email: "charlie@example.com",
+      },
+      {
+        name: "Dobbie",
+        email: "dobbie@example.com",
+      },
+      {
+        name: "Eve",
+        email: "eve@example.com",
       },
     ],
   });

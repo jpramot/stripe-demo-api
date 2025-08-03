@@ -52,7 +52,7 @@ model Subscription {
   currentPeriodEnd   DateTime?          @map("current_period_end")
   subScriptionStatus SubScriptionStatus @default(ACTIVE) @map("subscription_status")
   userId             Int                @unique
-  user               User               @relation(references: [id], fields: [userId])
+  user               User               @relation(references: [id], fields: [userId], onDelete: Cascade)
   isAvailable        Boolean            @default(true) @map("is_available")
   createdAt          DateTime           @default(now()) @map("created_at")
   priceId            String?            @map("price_id")

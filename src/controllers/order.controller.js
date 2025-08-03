@@ -51,7 +51,8 @@ export const cancelOrder = async (req, res, next) => {
 export const createNewSubOrder = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const url = await orderService.createNewSubOrder(id);
+    const { userId } = req.body;
+    const url = await orderService.createNewSubOrder(id, parseInt(userId));
     res.json(url);
   } catch (error) {
     next(error);
