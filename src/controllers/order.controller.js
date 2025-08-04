@@ -2,7 +2,8 @@ import * as orderService from "../services/order.service.js";
 
 export const createNewOrder = async (req, res, next) => {
   try {
-    res.json({ url: "http://localhost:5173" });
+    const url = await orderService.createNewOrder(req.body);
+    res.json(url);
   } catch (error) {
     next(error);
   }
