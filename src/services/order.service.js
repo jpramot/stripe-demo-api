@@ -49,13 +49,8 @@ export const getOrderPaymentUrl = async (id) => {
   if (!order) {
     throw new NotFound("Order not found");
   }
-  const { url, stripeSessionId } = await createStripeSession(id);
 
-  await orderRepo.updateById(id, {
-    stripeSessionId,
-    stripePaymentUrl: url,
-  });
-  return { url };
+  return { url: order.stripePaymentUrl };
 };
 
 //* update order by session id
