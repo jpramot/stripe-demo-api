@@ -63,6 +63,7 @@ model Subscription {
 enum SubScriptionStatus {
   ACTIVE
   UNPAID
+  CANCELED_AT_PERIOD_END
   CANCELED
 }
 
