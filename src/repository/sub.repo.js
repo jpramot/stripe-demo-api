@@ -14,3 +14,9 @@ export const findByUserId = async (userId) =>
   await prisma.subscription.findFirst({ where: { userId } });
 
 export const findById = async (id) => await prisma.subscription.findFirst({ where: { id } });
+
+export const findByUserIdWithisAvailable = async (userId) =>
+  await prisma.subscription.findFirst({
+    where: { userId, isAvailable: true },
+    include: { user: { select: { stripeCustomerId: true } } },
+  });

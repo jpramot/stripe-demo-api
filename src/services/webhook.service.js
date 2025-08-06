@@ -74,12 +74,19 @@ export const handleStripeHook = async (signature, body) => {
       case "customer.subscription.updated": {
         //? Subscription update logic here
         console.log("updated: ", event.data.object);
-        const { id, cancel_at_period_end } = event.data.object;
-        if (cancel_at_period_end) {
+        const { id } = event.data.object;
+        console.log(event.data.previous_attributes);
+        if (
+          event.data.object.cancel_at_period_end &&
+          !event.data.previous_attributes.cancel_at_period_end
+        ) {
           await subService.updateSub(id, {
             subScriptionStatus: SubScriptionStatus.CANCELED_AT_PERIOD_END,
           });
-        } else if (!cancel_at_period_end) {
+        } else if (
+          !event.data.object.cancel_at_period_end &&
+          event.data.previous_attributes.cancel_at_period_end
+        ) {
           await subService.updateSub(id, {
             subScriptionStatus: SubScriptionStatus.ACTIVE,
           });

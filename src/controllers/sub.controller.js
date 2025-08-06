@@ -24,6 +24,7 @@ export const cancelOrResub = async (req, res, next) => {
 export const changePlan = async (req, res, next) => {
   const { subId } = req.params;
   const { priceId } = req.body;
-  const sub = await subService.changePlan(subId, priceId);
+  //   const sub = await subService.changePlan(subId, priceId);
+  const sub = await subService.showDemoSubPlan(subId, priceId);
   res.json(sub);
 };
